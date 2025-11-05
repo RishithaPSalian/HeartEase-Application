@@ -50,6 +50,34 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
     await supabase.from('emergencies').update({'status': newStatus}).eq('id', id);
   }
 
+  // ADDED: robust Maps opener with fallbacks
+  Future<void> _openMaps(double lat, double lng) async {
+  final geo = Uri.parse('geo:$lat,$lng?q=$lat,$lng(Incident)');
+  final nav = Uri.parse('google.navigation:q=$lat,$lng&mode=d');
+  final web = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+
+  if (await canLaunchUrl(geo)) {
+    await launchUrl(geo, mode: LaunchMode.externalApplication);
+    return;
+  }
+  if (await canLaunchUrl(nav)) {
+    await launchUrl(nav, mode: LaunchMode.externalApplication);
+    return;
+  }
+  // Force external app (Chrome) for https
+  if (await canLaunchUrl(web)) {
+    final ok = await launchUrl(web, mode: LaunchMode.externalApplication);
+    if (ok) return;
+  }
+  // Last resort: open inside the app’s custom tab/webview
+  await launchUrl(web, mode: LaunchMode.inAppBrowserView);
+
+if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Could not open Google Maps!')),
+    );
+  }
+
   Color _getStatusColor(String status) {
     switch (status) {
       case 'accepted':
@@ -73,15 +101,15 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('HeartEase'),
+        title: const Text('HeartEase'),
         backgroundColor: Colors.deepPurple,
         actions: [
           IconButton(
-            icon: Icon(Icons.account_circle, size: 32),
+            icon: const Icon(Icons.account_circle, size: 32),
             onPressed: () {
               showModalBottomSheet(
                 context: context,
-                shape: RoundedRectangleBorder(
+                shape: const RoundedRectangleBorder(
                   borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                 ),
                 builder: (_) => Padding(
@@ -89,24 +117,23 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      CircleAvatar(
+                      const CircleAvatar(
                         radius: 28,
                         child: Icon(Icons.person, size: 40),
                       ),
-                      SizedBox(height: 12),
-                      Text("Admin",
+                      const SizedBox(height: 12),
+                      const Text("Admin",
                           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                       Text(widget.adminEmail,
                           style: TextStyle(fontSize: 14, color: Colors.grey[700])),
-                      Divider(height: 32),
+                      const Divider(height: 32),
                       ListTile(
-                        leading: Icon(Icons.logout, color: Colors.red),
-                        title: Text('Logout', style: TextStyle(color: Colors.red)),
+                        leading: const Icon(Icons.logout, color: Colors.red),
+                        title: const Text('Logout', style: TextStyle(color: Colors.red)),
                         onTap: () async {
+                          final navigator = Navigator.of(context); // capture before await
                           await supabase.auth.signOut();
-                          if (!mounted) return;          // ensure widget still in tree
-                          Navigator.pushAndRemoveUntil(
-                            context,
+                          navigator.pushAndRemoveUntil(
                             MaterialPageRoute(builder: (_) => const AuthPage()),
                             (route) => false,
                           );
@@ -133,7 +160,7 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
       ),
 
       body: emergencies.isEmpty
-          ? Center(child: Text("No active emergencies"))
+          ? const Center(child: Text("No active emergencies"))
           : ListView.builder(
               itemCount: emergencies.length,
               itemBuilder: (context, index) {
@@ -155,7 +182,7 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
                 }
 
                 return Card(
-                  margin: EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+                  margin: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
@@ -163,7 +190,7 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
                       children: [
                         Row(
                           children: [
-                            Text(
+                            const Text(
                               '🚨 Emergency Alert 🚨',
                               style: TextStyle(
                                 fontSize: 18,
@@ -171,20 +198,20 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
                                 color: Colors.red,
                               ),
                             ),
-                            Spacer(),
+                            const Spacer(),
                             Chip(
                               label: Text(status.toUpperCase()),
                               backgroundColor: _getStatusColor(status),
-                              labelStyle: TextStyle(color: Colors.white),
+                              labelStyle: const TextStyle(color: Colors.white),
                             ),
                           ],
                         ),
-                        SizedBox(height: 10),
+                        const SizedBox(height: 10),
                         _infoRow('Location:', location),
                         _infoRow('Coordinates:', coordinates),
                         _infoRow('Time:', time),
                         _infoRow('Full Address:', address),
-                        SizedBox(height: 18),
+                        const SizedBox(height: 18),
                         if (status == 'new') ...[
                           Row(
                             children: [
@@ -195,31 +222,25 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
                                 onPressed: latitude != null && longitude != null
                                     ? () async {
                                         await _updateAlertStatus(id, 'accepted');
-                                        final uri = Uri.parse(
-                                            'https://www.google.com/maps/search/?api=1&query=$latitude,$longitude');
-                                        if (await canLaunchUrl(uri)) {
-                                          await launchUrl(uri);
-                                        } else {
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(content: Text('Could not open Google Maps!')),
-                                          );
-                                        }
+                                        if (!mounted) return;
+                                        await _openMaps(latitude!, longitude!);
                                       }
                                     : null,
-                                child: Text('Accept & Navigate'),
+                                child: const Text('Accept & Navigate'),
                               ),
-                              SizedBox(width: 16),
+                              const SizedBox(width: 16),
                               ElevatedButton(
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: Colors.red,
                                 ),
                                 onPressed: () async {
                                   await _updateAlertStatus(id, 'dismissed');
+                                  if (!mounted) return;
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Alert dismissed')),
+                                    const SnackBar(content: Text('Alert dismissed')),
                                   );
                                 },
-                                child: Text('Dismiss'),
+                                child: const Text('Dismiss'),
                               ),
                             ],
                           ),
@@ -233,7 +254,7 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
                                 onPressed: () async {
                                   await _updateAlertStatus(id, 'completed');
                                 },
-                                child: Text('Mark as Completed'),
+                                child: const Text('Mark as Completed'),
                               ),
                             ],
                           ),
@@ -248,11 +269,11 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
   }
 
   Widget _infoRow(String label, String value) => Padding(
-        padding: EdgeInsets.symmetric(vertical: 2.0),
+        padding: const EdgeInsets.symmetric(vertical: 2.0),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: TextStyle(fontWeight: FontWeight.bold)),
+            Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
             Expanded(child: Text(' $value')),
           ],
         ),
