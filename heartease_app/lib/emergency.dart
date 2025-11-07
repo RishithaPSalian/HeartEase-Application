@@ -9,7 +9,11 @@ final supabase = Supabase.instance.client;
 class EmergencyScreen extends StatefulWidget {
   final String adminEmail;
   final String userId;
-  const EmergencyScreen({required this.adminEmail, required this.userId, super.key});
+  const EmergencyScreen({
+    required this.adminEmail,
+    required this.userId,
+    super.key,
+  });
 
   @override
   State<EmergencyScreen> createState() => _EmergencyScreenState();
@@ -24,13 +28,15 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
     super.initState();
     _fetchExistingEmergencies();
 
-    final emergencyStream =
-        supabase.from('emergencies').stream(primaryKey: ['id']);
+    final emergencyStream = supabase
+        .from('emergencies')
+        .stream(primaryKey: ['id']);
     emergencySubscription = emergencyStream.listen((data) {
       setState(() {
         emergencies = data
-          ..sort((a, b) =>
-              (b['created_at'] ?? '').compareTo(a['created_at'] ?? ''));
+          ..sort(
+            (a, b) => (b['created_at'] ?? '').compareTo(a['created_at'] ?? ''),
+          );
       });
     });
   }
@@ -47,32 +53,37 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
   }
 
   Future<void> _updateAlertStatus(dynamic id, String newStatus) async {
-    await supabase.from('emergencies').update({'status': newStatus}).eq('id', id);
+    await supabase
+        .from('emergencies')
+        .update({'status': newStatus})
+        .eq('id', id);
   }
 
   // ADDED: robust Maps opener with fallbacks
   Future<void> _openMaps(double lat, double lng) async {
-  final geo = Uri.parse('geo:$lat,$lng?q=$lat,$lng(Incident)');
-  final nav = Uri.parse('google.navigation:q=$lat,$lng&mode=d');
-  final web = Uri.parse('https://www.google.com/maps/search/?api=1&query=$lat,$lng');
+    final geo = Uri.parse('geo:$lat,$lng?q=$lat,$lng(Incident)');
+    final nav = Uri.parse('google.navigation:q=$lat,$lng&mode=d');
+    final web = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
+    );
 
-  if (await canLaunchUrl(geo)) {
-    await launchUrl(geo, mode: LaunchMode.externalApplication);
-    return;
-  }
-  if (await canLaunchUrl(nav)) {
-    await launchUrl(nav, mode: LaunchMode.externalApplication);
-    return;
-  }
-  // Force external app (Chrome) for https
-  if (await canLaunchUrl(web)) {
-    final ok = await launchUrl(web, mode: LaunchMode.externalApplication);
-    if (ok) return;
-  }
-  // Last resort: open inside the app’s custom tab/webview
-  await launchUrl(web, mode: LaunchMode.inAppBrowserView);
+    if (await canLaunchUrl(geo)) {
+      await launchUrl(geo, mode: LaunchMode.externalApplication);
+      return;
+    }
+    if (await canLaunchUrl(nav)) {
+      await launchUrl(nav, mode: LaunchMode.externalApplication);
+      return;
+    }
+    // Force external app (Chrome) for https
+    if (await canLaunchUrl(web)) {
+      final ok = await launchUrl(web, mode: LaunchMode.externalApplication);
+      if (ok) return;
+    }
+    // Last resort: open inside the app’s custom tab/webview
+    await launchUrl(web, mode: LaunchMode.inAppBrowserView);
 
-if (!mounted) return;
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Could not open Google Maps!')),
     );
@@ -122,16 +133,28 @@ if (!mounted) return;
                         child: Icon(Icons.person, size: 40),
                       ),
                       const SizedBox(height: 12),
-                      const Text("Admin",
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      Text(widget.adminEmail,
-                          style: TextStyle(fontSize: 14, color: Colors.grey[700])),
+                      const Text(
+                        "Admin",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Text(
+                        widget.adminEmail,
+                        style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                      ),
                       const Divider(height: 32),
                       ListTile(
                         leading: const Icon(Icons.logout, color: Colors.red),
-                        title: const Text('Logout', style: TextStyle(color: Colors.red)),
+                        title: const Text(
+                          'Logout',
+                          style: TextStyle(color: Colors.red),
+                        ),
                         onTap: () async {
-                          final navigator = Navigator.of(context); // capture before await
+                          final navigator = Navigator.of(
+                            context,
+                          ); // capture before await
                           await supabase.auth.signOut();
                           navigator.pushAndRemoveUntil(
                             MaterialPageRoute(builder: (_) => const AuthPage()),
@@ -182,7 +205,10 @@ if (!mounted) return;
                 }
 
                 return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 6,
+                  ),
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
@@ -221,7 +247,10 @@ if (!mounted) return;
                                 ),
                                 onPressed: latitude != null && longitude != null
                                     ? () async {
-                                        await _updateAlertStatus(id, 'accepted');
+                                        await _updateAlertStatus(
+                                          id,
+                                          'accepted',
+                                        );
                                         if (!mounted) return;
                                         await _openMaps(latitude!, longitude!);
                                       }
@@ -235,10 +264,13 @@ if (!mounted) return;
                                 ),
                                 onPressed: () async {
                                   await _updateAlertStatus(id, 'dismissed');
-                                  if (!mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Alert dismissed')),
-                                  );
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Alert dismissed'),
+                                      ),
+                                    );
+                                  }
                                 },
                                 child: const Text('Dismiss'),
                               ),
@@ -269,13 +301,13 @@ if (!mounted) return;
   }
 
   Widget _infoRow(String label, String value) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 2.0),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
-            Expanded(child: Text(' $value')),
-          ],
-        ),
-      );
+    padding: const EdgeInsets.symmetric(vertical: 2.0),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+        Expanded(child: Text(' $value')),
+      ],
+    ),
+  );
 }
