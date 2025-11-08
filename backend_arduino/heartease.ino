@@ -17,7 +17,7 @@ void setup() {
   updateSerial();
   
   // Send SMS
-  mySerial.println("AT+CMGS=\"+919164206878\""); // <-- change if needed
+  mySerial.println("AT+CMGS=\"+17622252405\""); // <-- change if needed
   updateSerial();
 
   // ✅ IMPORTANT:

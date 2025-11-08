@@ -1,0 +1,19 @@
+{
+  "name": "backend_arduino",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "backend.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.80.0",
+    "body-parser": "^2.2.0",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0"
+  }
+}

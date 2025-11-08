@@ -1,4 +1,6 @@
-import 'dotenv/config';
+import dotenv from "dotenv";
+dotenv.config({ path: "backend.env" });
+
 import express from "express";
 import bodyParser from "body-parser";
 import { createClient } from "@supabase/supabase-js";
@@ -7,6 +9,9 @@ const app = express();
 
 // Twilio sends data as URL encoded
 app.use(bodyParser.urlencoded({ extended: false }));
+
+console.log('Has SUPABASE_URL?', !!process.env.SUPABASE_URL);
+console.log('Has SERVICE_ROLE?', !!process.env.SUPABASE_SERVICE_ROLE);
 
 // ✅ Use SERVICE_ROLE key here
 const supabase = createClient(
