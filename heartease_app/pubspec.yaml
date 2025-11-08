@@ -39,6 +39,9 @@ dependencies:
   email_validator: ^3.0.0
   dotenv: ^4.2.0
   flutter_dotenv: ^6.0.0
+  firebase_core: ^4.2.1
+  firebase_messaging: ^16.0.4
+  flutter_local_notifications: ^19.5.0
 
 dev_dependencies:
   flutter_test:
