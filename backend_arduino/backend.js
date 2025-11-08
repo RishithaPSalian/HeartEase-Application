@@ -7,54 +7,69 @@ import { createClient } from "@supabase/supabase-js";
 
 const app = express();
 
-// Twilio sends data as URL encoded
+// Twilio sends application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({ extended: false }));
 
-console.log('Has SUPABASE_URL?', !!process.env.SUPABASE_URL);
-console.log('Has SERVICE_ROLE?', !!process.env.SUPABASE_SERVICE_ROLE);
+// ---- Env checks ----
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE) {
+  console.error("❌ Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE in backend.env");
+  process.exit(1);
+}
 
-// ✅ Use SERVICE_ROLE key here
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE
 );
 
+// ---- Simple routes ----
+app.get("/", (_req, res) => res.send("Backend is running ✅"));
+app.get("/health", (_req, res) => res.json({ ok: true }));
+
+// ---- Twilio Webhook ----
 app.post("/twilio-webhook", async (req, res) => {
-  const from = req.body.From || null;
-  const message = req.body.Body || "";
+  try {
+    const from = (req.body.From || "").trim();
+    const body = (req.body.Body || "").trim();
 
-  // Expected SMS Format: "CPR,12.9173,77.6043"
-  let latitude = null;
-  let longitude = null;
+    // Expect: CPR,<lat>,<lng>
+    // e.g., "CPR,12.9173,77.6043"
+    let latitude = null;
+    let longitude = null;
 
-  const parts = message.split(",");
-  if (parts.length >= 3) {
-    latitude = parts[1];
-    longitude = parts[2];
-  }
+    // robust parse (case-insensitive, spaces allowed)
+    const m = body.match(/^CPR\s*,\s*([+-]?\d+(?:\.\d+)?)\s*,\s*([+-]?\d+(?:\.\d+)?)$/i);
+    if (m) {
+      latitude = parseFloat(m[1]);
+      longitude = parseFloat(m[2]);
+    }
 
-  // ✅ Store in Supabase
-  const { error } = await supabase
-    .from("device_events")
-    .insert({
-      from_number: from,
-      message,
-      latitude,
-      longitude
+    // Store in Supabase (assumes numeric columns for lat/lng)
+    const { error } = await supabase.from("device_events").insert({
+      from_number: from || null,
+      message: body,
+      latitude: isFinite(latitude) ? latitude : null,
+      longitude: isFinite(longitude) ? longitude : null
     });
 
-  if (error) {
-    console.error(error);
-    res.set("Content-Type", "text/xml");
-    return res.send(`<Response><Message>❌ DB Error</Message></Response>`);
-  }
+    if (error) {
+      console.error("Supabase insert error:", error);
+      res.status(200).type("text/xml")
+        .send(`<Response><Message>❌ DB Error</Message></Response>`);
+      return;
+    }
 
-  // Twilio must receive XML
-  res.set("Content-Type", "text/xml");
-  res.send(`<Response><Message>✅ Location stored!</Message></Response>`);
+    // Respond TwiML
+    res.status(200).type("text/xml")
+      .send(`<Response><Message>✅ Location stored!</Message></Response>`);
+  } catch (e) {
+    console.error("Webhook error:", e);
+    res.status(200).type("text/xml")
+      .send(`<Response><Message>❌ Server error</Message></Response>`);
+  }
 });
 
-// ✅ Start server
-app.listen(3000, () => {
-  console.log("✅ Backend running on http://localhost:3000");
+// ---- Start server ----
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`✅ Backend running on http://localhost:${PORT}`);
 });
