@@ -44,4 +44,3 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 flutter.env
-backend_arduino/.env
