@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "389947585177",
+    "project_id": "heartease-app-ebd92",
+    "storage_bucket": "heartease-app-ebd92.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:389947585177:android:4a2f26e90eeef1b9efbe08",
+        "android_client_info": {
+          "package_name": "com.example.heartease_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC7-KR5_NKxB0uUsfUaacllPY-WwbRT0ks"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

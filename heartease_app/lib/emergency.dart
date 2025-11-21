@@ -131,6 +131,15 @@ class _EmergencyScreenState extends State<EmergencyScreen> {
         backgroundColor: Colors.deepPurple,
         actions: [
           IconButton(
+            icon: const Icon(Icons.settings, size: 28),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AdminSettingsScreen()),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.account_circle, size: 32),
             onPressed: () {
               showModalBottomSheet(

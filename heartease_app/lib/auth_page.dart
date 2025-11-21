@@ -36,13 +36,16 @@ class _AuthPageState extends State<AuthPage> {
   String? validatePassword(String? value) {
     if (value == null || value.isEmpty) return 'Enter password'; // [web:92]
     if (value.length < 6) return 'At least 6 characters'; // [web:92]
-    if (!RegExp(r'[0-9]').hasMatch(value)) return 'Include a number'; // [web:92]
-    if (!RegExp(r'[!@#\$&*~]').hasMatch(value)) return 'Include a special character'; // [web:92]
+    if (!RegExp(r'[0-9]').hasMatch(value))
+      return 'Include a number'; // [web:92]
+    if (!RegExp(r'[!@#\$&*~]').hasMatch(value))
+      return 'Include a special character'; // [web:92]
     return null; // [web:92]
   }
 
   String? validateConfirmPassword(String? value) {
-    if (value != passwordController.text) return 'Passwords do not match'; // [web:92]
+    if (value != passwordController.text)
+      return 'Passwords do not match'; // [web:92]
     return null; // [web:92]
   }
 
@@ -52,50 +55,61 @@ class _AuthPageState extends State<AuthPage> {
     final password = passwordController.text.trim(); // [web:24]
     final name = nameController.text.trim(); // [web:24]
 
-try {
-  // For web, redirect back to /auth-callback on same origin during dev
-  final redirectUrl = '${Uri.base.origin}/auth-callback'; // ✅ fixed here
+    try {
+      // For web, redirect back to /auth-callback on same origin during dev
+      final redirectUrl = '${Uri.base.origin}/auth-callback'; // ✅ fixed here
 
-  final res = await supabase.auth.signUp(
-    email: email,
-    password: password,
-    emailRedirectTo: redirectUrl,
-  );
-
-  final user = res.user;
-  if (user != null) {
-    await supabase.from('profiles').insert({
-      'id': user.id,
-      'email': email,
-      'name': name,
-      // IMPORTANT: do not store plaintext passwords in production, remove this field from DB
-      'password': password,
-      'phone': phoneController.text.trim(),
-      'city': cityController.text.trim(),
-      'state': stateController.text.trim(),
-      'country': countryController.text.trim(),
-    });
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('We sent a confirmation email. Please confirm to complete signup.')),
+      final res = await supabase.auth.signUp(
+        email: email,
+        password: password,
+        emailRedirectTo: redirectUrl,
       );
-    }
-  } else {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Signup initiated. Check your email to confirm your account.')),
-      );
-    }
-  }
-}
-on AuthException catch (e) {
+
+      final user = res.user;
+      if (user != null) {
+        await supabase.from('profiles').insert({
+          'id': user.id,
+          'email': email,
+          'name': name,
+          // IMPORTANT: do not store plaintext passwords in production, remove this field from DB
+          'password': password,
+          'phone': phoneController.text.trim(),
+          'city': cityController.text.trim(),
+          'state': stateController.text.trim(),
+          'country': countryController.text.trim(),
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'We sent a confirmation email. Please confirm to complete signup.',
+              ),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Signup initiated. Check your email to confirm your account.',
+              ),
+            ),
+          );
+        }
+      }
+    } on AuthException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message))); // [web:24]
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message))); // [web:24]
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Signup error: $e'))); // [web:92]
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Signup error: $e'))); // [web:92]
       }
     }
   }
@@ -105,256 +119,359 @@ on AuthException catch (e) {
     final email = emailController.text; // [web:24]
     final password = passwordController.text; // [web:24]
     try {
-      final res = await supabase.auth.signInWithPassword(email: email, password: password); // [web:24]
+      final res = await supabase.auth.signInWithPassword(
+        email: email,
+        password: password,
+      ); // [web:24]
       final user = res.user; // [web:24]
       if (user != null && mounted) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => EmergencyScreen(adminEmail: email, userId: user.id)),
+          MaterialPageRoute(
+            builder: (_) => EmergencyScreen(adminEmail: email, userId: user.id),
+          ),
         ); // [web:34]
       } else {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Login failed!'))); // [web:92]
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Login failed!')),
+          ); // [web:92]
         }
       }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString()))); // [web:92]
-      }
+    } on AuthException catch (e) {
+      if (!mounted) return;
+
+      final msg = e.code == 'invalid_credentials'
+          ? 'Invalid credentials'
+          : e.message; // fallback for other auth errors
+
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Login failed. Please try again.')),
+      );
     }
   }
 
-  // -------------------- Welcome/Login/Signup UI --------------------
+  //-------------------- Welcome/Login/Signup UI --------------------
   Widget getWelcomeCard() => Center(
-        child: Card(
-          margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 40),
-          elevation: 6,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          child: Container(
-            width: 300,
-            padding: const EdgeInsets.all(26),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.medical_services, size: 90, color: Colors.deepPurple),
-                const SizedBox(height: 24),
-                const Text('Welcome to HeartEase',
-                    style: TextStyle(fontSize: 21, fontWeight: FontWeight.bold, color: Colors.deepPurple),
-                    textAlign: TextAlign.center),
-                const SizedBox(height: 12),
-                const Text('Your trusted ambulance and emergency medical response platform.',
-                    style: TextStyle(fontSize: 14), textAlign: TextAlign.center),
-                const SizedBox(height: 36),
-                ElevatedButton(
-                  onPressed: () => setState(() => currentScreen = AuthScreen.login),
-                  style: ElevatedButton.styleFrom(
-                    minimumSize: const Size(double.infinity, 44),
-                  ),
-                child: const Text('Login'),
-                ),
-
-                const SizedBox(height: 6),
-                OutlinedButton(
-  onPressed: () => setState(() => currentScreen = AuthScreen.signup),
-  style: OutlinedButton.styleFrom(
-    minimumSize: const Size(double.infinity, 44),
-  ),
-  child: const Text('Register'),
-),
-
-              ],
+    child: Card(
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 40),
+      elevation: 6,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: Container(
+        width: 300,
+        padding: const EdgeInsets.all(26),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.medical_services,
+              size: 90,
+              color: Colors.deepPurple,
             ),
-          ),
+            const SizedBox(height: 24),
+            const Text(
+              'Welcome to HeartEase',
+              style: TextStyle(
+                fontSize: 21,
+                fontWeight: FontWeight.bold,
+                color: Colors.deepPurple,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Your trusted ambulance and emergency medical response platform.',
+              style: TextStyle(fontSize: 14),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 36),
+            ElevatedButton(
+              onPressed: () => setState(() => currentScreen = AuthScreen.login),
+              style: ElevatedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 44),
+              ),
+              child: const Text('Login'),
+            ),
+
+            const SizedBox(height: 6),
+            OutlinedButton(
+              onPressed: () =>
+                  setState(() => currentScreen = AuthScreen.signup),
+              style: OutlinedButton.styleFrom(
+                minimumSize: const Size(double.infinity, 44),
+              ),
+              child: const Text('Register'),
+            ),
+          ],
         ),
-      ); // [web:92]
+      ),
+    ),
+  ); // [web:92]
 
   Widget getLoginForm() => Center(
-        child: Card(
-          margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 40),
-          elevation: 6,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          child: Container(
-            width: 300,
-            padding: const EdgeInsets.all(26),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                children: [
-                  const Text("Login to HeartEase",
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22, color: Colors.deepPurple)),
-                  const SizedBox(height: 8),
-                  Text("Access emergency medical services instantly.",
-                      textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: Colors.grey[800])),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: emailController,
-                    decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder()),
-                    validator: (value) => EmailValidator.validate(value ?? '') ? null : 'Enter a valid email address',
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: passwordController,
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      border: const OutlineInputBorder(),
-                      suffixIcon: IconButton(
-                        icon: Icon(showPassword ? Icons.visibility : Icons.visibility_off),
-                        onPressed: () => setState(() => showPassword = !showPassword),
-                      ),
-                    ),
-                    obscureText: !showPassword,
-                    validator: validatePassword,
-                  ),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () async {
-                        if (emailController.text.isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Enter your email first')),
-                          ); // [web:92]
-                          return;
-                        }
-                        await supabase.auth.resetPasswordForEmail(emailController.text.trim()); // [web:33]
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Password reset email sent')),
-                          ); // [web:33]
-                        }
-                      },
-                      child: const Text('Forgot your password?', style: TextStyle(fontSize: 13)),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                 ElevatedButton(
-  onPressed: () async {
-    if (_formKey.currentState!.validate()) {
-      await _signIn();
-    }
-  },
-  style: ElevatedButton.styleFrom(
-    minimumSize: const Size(double.infinity, 44),
-  ),
-  child: const Text('Sign in'),
-),
-
-                  const SizedBox(height: 10),
-                  OutlinedButton(
-                    onPressed: () => setState(() => currentScreen = AuthScreen.welcome),
-                    child: const Text('Back'),
-                  ),
-                ],
+    child: Card(
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 40),
+      elevation: 6,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: Container(
+        width: 300,
+        padding: const EdgeInsets.all(26),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              const Text(
+                "Login to HeartEase",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 22,
+                  color: Colors.deepPurple,
+                ),
               ),
-            ),
+              const SizedBox(height: 8),
+              Text(
+                "Access emergency medical services instantly.",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: Colors.grey[800]),
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: emailController,
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) => EmailValidator.validate(value ?? '')
+                    ? null
+                    : 'Enter a valid email address',
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: passwordController,
+                decoration: InputDecoration(
+                  labelText: 'Password',
+                  border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      showPassword ? Icons.visibility : Icons.visibility_off,
+                    ),
+                    onPressed: () =>
+                        setState(() => showPassword = !showPassword),
+                  ),
+                ),
+                obscureText: !showPassword,
+                validator: validatePassword,
+              ),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: () async {
+                    if (emailController.text.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Enter your email first')),
+                      ); // [web:92]
+                      return;
+                    }
+                    await supabase.auth.resetPasswordForEmail(
+                      emailController.text.trim(),
+                    ); // [web:33]
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Password reset email sent'),
+                        ),
+                      ); // [web:33]
+                    }
+                  },
+                  child: const Text(
+                    'Forgot your password?',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              ElevatedButton(
+                onPressed: () async {
+                  if (_formKey.currentState!.validate()) {
+                    await _signIn();
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 44),
+                ),
+                child: const Text('Sign in'),
+              ),
+
+              const SizedBox(height: 10),
+              OutlinedButton(
+                onPressed: () =>
+                    setState(() => currentScreen = AuthScreen.welcome),
+                child: const Text('Back'),
+              ),
+            ],
           ),
         ),
-      ); // [web:92][web:33]
+      ),
+    ),
+  ); // [web:92][web:33]
 
   Widget getSignupForm() => Center(
-        child: Card(
-          margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 40),
-          elevation: 6,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-          child: Container(
-            width: 300,
-            padding: const EdgeInsets.all(26),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                children: [
-                  const Text("Create HeartEase Account",
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22, color: Colors.deepPurple)),
-                  const SizedBox(height: 8),
-                  Text("Register to request ambulance assistance and health support.",
-                      textAlign: TextAlign.center, style: TextStyle(fontSize: 13, color: Colors.grey[800])),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: nameController,
-                    decoration: const InputDecoration(labelText: 'Full Name', border: OutlineInputBorder()),
-                    validator: (value) => value != null && value.length < 3 ? 'Enter full name' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: emailController,
-                    decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder()),
-                    validator: (value) => EmailValidator.validate(value ?? '') ? null : 'Enter a valid email address',
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: passwordController,
-                    decoration: InputDecoration(
-                      labelText: 'Password',
-                      border: const OutlineInputBorder(),
-                      suffixIcon: IconButton(
-                        icon: Icon(showPassword ? Icons.visibility : Icons.visibility_off),
-                        onPressed: () => setState(() => showPassword = !showPassword),
-                      ),
-                    ),
-                    obscureText: !showPassword,
-                    validator: validatePassword,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: confirmPasswordController,
-                    decoration: InputDecoration(
-                      labelText: 'Confirm Password',
-                      border: const OutlineInputBorder(),
-                      suffixIcon: IconButton(
-                        icon: Icon(showConfirmPassword ? Icons.visibility : Icons.visibility_off),
-                        onPressed: () => setState(() => showConfirmPassword = !showConfirmPassword),
-                      ),
-                    ),
-                    obscureText: !showConfirmPassword,
-                    validator: validateConfirmPassword,
-                  ),
-                  const SizedBox(height: 18),
-                  TextFormField(
-                    controller: phoneController,
-                    decoration: const InputDecoration(labelText: 'Phone Number', border: OutlineInputBorder()),
-                    validator: (value) => value != null && value.length < 10 ? 'Enter valid phone number' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: cityController,
-                    decoration: const InputDecoration(labelText: 'City', border: OutlineInputBorder()),
-                    validator: (value) => value != null && value.length < 2 ? 'Enter valid city' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: stateController,
-                    decoration: const InputDecoration(labelText: 'State', border: OutlineInputBorder()),
-                    validator: (value) => value != null && value.length < 2 ? 'Enter valid state' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: countryController,
-                    decoration: const InputDecoration(labelText: 'Country', border: OutlineInputBorder()),
-                    validator: (value) => value != null && value.length < 2 ? 'Enter valid country' : null,
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-  onPressed: () async {
-    if (_formKey.currentState!.validate()) {
-      await _signUp();
-    }
-  },
-  style: ElevatedButton.styleFrom(
-    minimumSize: const Size(double.infinity, 44),
-  ),
-  child: const Text('Sign up'),
-),
-
-                  const SizedBox(height: 10),
-                  OutlinedButton(
-                    onPressed: () => setState(() => currentScreen = AuthScreen.welcome),
-                    child: const Text('Back'),
-                  ),
-                ],
+    child: Card(
+      margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 40),
+      elevation: 6,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      child: Container(
+        width: 300,
+        padding: const EdgeInsets.all(26),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            children: [
+              const Text(
+                "Create HeartEase Account",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 22,
+                  color: Colors.deepPurple,
+                ),
               ),
-            ),
+              const SizedBox(height: 8),
+              Text(
+                "Register to request ambulance assistance and health support.",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: Colors.grey[800]),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Full Name',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) => value != null && value.length < 3
+                    ? 'Enter full name'
+                    : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: emailController,
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) => EmailValidator.validate(value ?? '')
+                    ? null
+                    : 'Enter a valid email address',
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: passwordController,
+                decoration: InputDecoration(
+                  labelText: 'Password',
+                  border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      showPassword ? Icons.visibility : Icons.visibility_off,
+                    ),
+                    onPressed: () =>
+                        setState(() => showPassword = !showPassword),
+                  ),
+                ),
+                obscureText: !showPassword,
+                validator: validatePassword,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: confirmPasswordController,
+                decoration: InputDecoration(
+                  labelText: 'Confirm Password',
+                  border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      showConfirmPassword
+                          ? Icons.visibility
+                          : Icons.visibility_off,
+                    ),
+                    onPressed: () => setState(
+                      () => showConfirmPassword = !showConfirmPassword,
+                    ),
+                  ),
+                ),
+                obscureText: !showConfirmPassword,
+                validator: validateConfirmPassword,
+              ),
+              const SizedBox(height: 18),
+              TextFormField(
+                controller: phoneController,
+                decoration: const InputDecoration(
+                  labelText: 'Phone Number',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) => value != null && value.length < 10
+                    ? 'Enter valid phone number'
+                    : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: cityController,
+                decoration: const InputDecoration(
+                  labelText: 'City',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) => value != null && value.length < 2
+                    ? 'Enter valid city'
+                    : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: stateController,
+                decoration: const InputDecoration(
+                  labelText: 'State',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) => value != null && value.length < 2
+                    ? 'Enter valid state'
+                    : null,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: countryController,
+                decoration: const InputDecoration(
+                  labelText: 'Country',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (value) => value != null && value.length < 2
+                    ? 'Enter valid country'
+                    : null,
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () async {
+                  if (_formKey.currentState!.validate()) {
+                    await _signUp();
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 44),
+                ),
+                child: const Text('Sign up'),
+              ),
+
+              const SizedBox(height: 10),
+              OutlinedButton(
+                onPressed: () =>
+                    setState(() => currentScreen = AuthScreen.welcome),
+                child: const Text('Back'),
+              ),
+            ],
           ),
         ),
-      ); // [web:92]
+      ),
+    ),
+  ); // [web:92]
 
   @override
   Widget build(BuildContext context) {
@@ -371,8 +488,8 @@ on AuthException catch (e) {
                 currentScreen == AuthScreen.login
                     ? getLoginForm()
                     : currentScreen == AuthScreen.signup
-                        ? getSignupForm()
-                        : getWelcomeCard(),
+                    ? getSignupForm()
+                    : getWelcomeCard(),
               ],
             ),
           ),
@@ -382,8 +499,8 @@ on AuthException catch (e) {
       final Widget child = currentScreen == AuthScreen.welcome
           ? getWelcomeCard()
           : currentScreen == AuthScreen.login
-              ? getLoginForm()
-              : getSignupForm(); // [web:92]
+          ? getLoginForm()
+          : getSignupForm(); // [web:92]
       return Scaffold(
         backgroundColor: const Color(0xFFF6F7FB),
         body: Center(child: SingleChildScrollView(child: child)),
@@ -451,7 +568,9 @@ class _AccountSectionMaterial extends StatelessWidget {
           onTap: () async {
             await supabase.auth.signOut();
             if (context.mounted) {
-              Navigator.of(context).pushNamedAndRemoveUntil('/auth', (r) => false);
+              Navigator.of(
+                context,
+              ).pushNamedAndRemoveUntil('/auth', (r) => false);
             }
           },
         ),
@@ -465,8 +584,10 @@ class _AccountSectionMaterial extends StatelessWidget {
 class _PrivacySectionMaterial extends StatefulWidget {
   const _PrivacySectionMaterial();
   @override
-  State<_PrivacySectionMaterial> createState() => _PrivacySectionMaterialState();
+  State<_PrivacySectionMaterial> createState() =>
+      _PrivacySectionMaterialState();
 }
+
 class _PrivacySectionMaterialState extends State<_PrivacySectionMaterial> {
   bool profilePublic = false;
   bool dataSharing = false;
@@ -501,8 +622,7 @@ class _PrivacySectionMaterialState extends State<_PrivacySectionMaterial> {
         ListTile(
           title: const Text('Blocked users'),
           trailing: const Icon(Icons.chevron_right),
-          onTap: () {
-          },
+          onTap: () {},
         ),
         const Divider(height: 0),
       ],
@@ -514,9 +634,12 @@ class _PrivacySectionMaterialState extends State<_PrivacySectionMaterial> {
 class _NotificationsSectionMaterial extends StatefulWidget {
   const _NotificationsSectionMaterial();
   @override
-  State<_NotificationsSectionMaterial> createState() => _NotificationsSectionMaterialState();
+  State<_NotificationsSectionMaterial> createState() =>
+      _NotificationsSectionMaterialState();
 }
-class _NotificationsSectionMaterialState extends State<_NotificationsSectionMaterial> {
+
+class _NotificationsSectionMaterialState
+    extends State<_NotificationsSectionMaterial> {
   bool pushAlerts = true;
   bool emailAlerts = true;
   bool smsAlerts = false;
@@ -590,7 +713,8 @@ class _SupportSectionMaterial extends StatelessWidget {
 class TwoStepVerificationPage extends StatefulWidget {
   const TwoStepVerificationPage({super.key});
   @override
-  State<TwoStepVerificationPage> createState() => _TwoStepVerificationPageState();
+  State<TwoStepVerificationPage> createState() =>
+      _TwoStepVerificationPageState();
 }
 
 class _TwoStepVerificationPageState extends State<TwoStepVerificationPage> {
@@ -614,42 +738,42 @@ class _TwoStepVerificationPageState extends State<TwoStepVerificationPage> {
   }
 
   Future<void> _verify() async {
-  if (factorId == null) return; // ensure enroll ran [web:13]
-  setState(() => loading = true); // UI state [web:92]
+    if (factorId == null) return; // ensure enroll ran [web:13]
+    setState(() => loading = true); // UI state [web:92]
 
-  // 1) Create a challenge for this factor
-  final challenge = await supabase.auth.mfa.challenge(factorId: factorId!); // returns challengeId [web:13]
+    // 1) Create a challenge for this factor
+    final challenge = await supabase.auth.mfa.challenge(
+      factorId: factorId!,
+    ); // returns challengeId [web:13]
 
-  // 2) Verify using challengeId + factorId + code
-  await supabase.auth.mfa.verify(
-    challengeId: challenge.id, // required as per current API [web:13]
-    factorId: factorId!,       // enrolled factor [web:13]
-    code: codeCtrl.text.trim(),// 6-digit from authenticator [web:13]
-  );
+    // 2) Verify using challengeId + factorId + code
+    await supabase.auth.mfa.verify(
+      challengeId: challenge.id, // required as per current API [web:13]
+      factorId: factorId!, // enrolled factor [web:13]
+      code: codeCtrl.text.trim(), // 6-digit from authenticator [web:13]
+    );
 
-  setState(() => loading = false); // UI state [web:92]
-  if (!mounted) return; // safety [web:92]
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text('Two‑step verification enabled')),
-  ); // feedback [web:92]
-}
-
+    setState(() => loading = false); // UI state [web:92]
+    if (!mounted) return; // safety [web:92]
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Two‑step verification enabled')),
+    ); // feedback [web:92]
+  }
 
   Future<void> _disable() async {
-  setState(() => loading = true);
-  final list = await supabase.auth.mfa.listFactors();
-  final factors = list.totp; // already a List by your SDK typing
-  for (final f in factors) {
-  await supabase.auth.mfa.unenroll(f.id);
-}
+    setState(() => loading = true);
+    final list = await supabase.auth.mfa.listFactors();
+    final factors = list.totp; // already a List by your SDK typing
+    for (final f in factors) {
+      await supabase.auth.mfa.unenroll(f.id);
+    }
 
-  setState(() => loading = false);
-  if (!mounted) return;
-  ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text('Two‑step verification disabled')),
-  );
-}
-
+    setState(() => loading = false);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Two‑step verification disabled')),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -665,7 +789,9 @@ class _TwoStepVerificationPageState extends State<TwoStepVerificationPage> {
             ),
           if (uri != null) ...[
             const SizedBox(height: 12),
-            const Text('Scan the QR in your authenticator app, then enter the 6‑digit code.'),
+            const Text(
+              'Scan the QR in your authenticator app, then enter the 6‑digit code.',
+            ),
             const SizedBox(height: 12),
             TextField(
               controller: codeCtrl,
@@ -705,21 +831,23 @@ class _ChangeEmailPageState extends State<ChangeEmailPage> {
   String? message;
 
   Future<void> _submit() async {
-  final newEmail = emailCtrl.text.trim();
-  if (newEmail.isEmpty) return;
-  setState(() {
-    loading = true;
-    message = null;
-  });
+    final newEmail = emailCtrl.text.trim();
+    if (newEmail.isEmpty) return;
+    setState(() {
+      loading = true;
+      message = null;
+    });
 
-  await supabase.auth.updateUser(UserAttributes(email: newEmail)); // remove emailRedirectTo
+    await supabase.auth.updateUser(
+      UserAttributes(email: newEmail),
+    ); // remove emailRedirectTo
 
-  setState(() {
-    loading = false;
-    message = 'Check your inbox to confirm the email change.'; // Supabase will email if secure change enabled
-  });
-}
-
+    setState(() {
+      loading = false;
+      message =
+          'Check your inbox to confirm the email change.'; // Supabase will email if secure change enabled
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -777,7 +905,9 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
       loading = true;
       message = null;
     });
-    await supabase.auth.updateUser(UserAttributes(password: p1)); // [web:24][web:33]
+    await supabase.auth.updateUser(
+      UserAttributes(password: p1),
+    ); // [web:24][web:33]
     setState(() {
       loading = false;
       message = 'Password updated';
